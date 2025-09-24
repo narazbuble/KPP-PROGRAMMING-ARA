@@ -1,22 +1,13 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-/*
-  Perbaikan implementasi:
-  - Baca daftar rest/charging dengan getline + stringstream
-  - Hindari creating default map entries saat mengecek dist (pakai find)
-  - Hitung travel_time dari w dengan SPEED (ceil)
-  - Untuk rest: hanya pertimbangkan menunggu untuk toggle parity (lebih efisien)
-  - Simpan parent state untuk rekonstruksi path & waktu
-*/
-
 struct ParentInfo {
     int prev_node;
     int prev_e;
     int prev_t;
     int action; // 0 = move, 1 = charge, 2 = wait
-    int edge_w; // travel time used (for move)
-    int wait_time; // for wait action
+    int edge_w;
+    int wait_time; 
 };
 
 int main() {
@@ -25,7 +16,6 @@ int main() {
 
     int N, M;
     if (!(cin >> N >> M)) return 0;
-    // read newline after M so getline works later
     string dummy;
     getline(cin, dummy);
 
@@ -48,7 +38,7 @@ int main() {
     for (int i = 0; i < M; ++i) {
         string line;
         getline(cin, line);
-        if (line.size() == 0) { --i; continue; } // skip empty
+        if (line.size() == 0) { --i; continue; } 
         stringstream ss(line);
         string u, v;
         int w, o;
@@ -57,14 +47,14 @@ int main() {
         int vi = ensure_node(v);
         if ((int)graph.size() < (int)index_to_node.size()) graph.resize(index_to_node.size());
         int base = w + o;
-        int travel_time = max(1, (w + SPEED - 1) / SPEED); // ceil(w/SPEED), at least 1
+        int travel_time = max(1, (w + SPEED - 1) / SPEED); 
         int energy_odd  = (base * 13 + 5) / 10; // round half-up
         int energy_even = (base * 8  + 5) / 10;
         graph[ui].push_back({vi, w, o, base, travel_time, energy_odd, energy_even});
         graph[vi].push_back({ui, w, o, base, travel_time, energy_odd, energy_even});
     }
 
-    // read S T line
+    // S T line
     string st_line;
     getline(cin, st_line);
     while(st_line.size()==0) getline(cin, st_line);
@@ -76,7 +66,7 @@ int main() {
         int ti = ensure_node(T);
     }
 
-    // now read rest points line
+    // rest points line
     string rest_line;
     getline(cin, rest_line);
     while(rest_line.size()==0) getline(cin, rest_line);
@@ -108,7 +98,7 @@ int main() {
         }
     }
 
-    // node M and E (we just read them, ignore semantics if '-')
+    // node M and E 
     string nodeM_line;
     getline(cin, nodeM_line);
     while(nodeM_line.size()==0) getline(cin, nodeM_line);
@@ -130,18 +120,16 @@ int main() {
     int n_nodes = index_to_node.size();
     if ((int)graph.size() < n_nodes) graph.resize(n_nodes);
 
-    // dist[u][{energy,big_t}] = min total energy consumed so far
-    // we keep t in [0..119] (minutes mod 120) because parity pattern repeats every 120 min (2 hours)
+   
     vector< map<pair<int,int>, int> > dist(n_nodes);
     vector< map<pair<int,int>, ParentInfo> > parent(n_nodes);
 
-    // priority queue: min-heap keyed by total_energy
+  
     using State = tuple<int,int,int,int>; // (total_energy, u, energy_left, t_mod120)
     priority_queue<State, vector<State>, greater<State>> pq;
 
     int start_idx = node_to_index[index_to_node[0]]; // dummy init; we will find actual S index
-    // Find start and target indices from earlier ensure_node calls: they exist in node_to_index
-    // Unfortunately we didn't store S and T variables separately above; recover by reading first tokens of st_line:
+   
     {
         stringstream ss(st_line);
         string S, T;
@@ -156,14 +144,14 @@ int main() {
         target_idx = node_to_index[T];
     }
 
-    // initial state: energy 1000, t = 0 (minutes since start)
+    // t = 0 (minutes since start)
     dist[start_idx][{1000, 0}] = 0;
     parent[start_idx][{1000,0}] = {-1,-1,-1,-1,0,0};
     pq.push({0, start_idx, 1000, 0});
 
     int INF = 1e9;
     int best_energy = INF;
-    pair<pair<int,int>, int> final_key; // ((node, energy), t)
+    pair<pair<int,int>, int> final_key;
 
     while(!pq.empty()) {
         auto top = pq.top(); pq.pop();
@@ -180,15 +168,15 @@ int main() {
                 best_energy = total_energy;
                 final_key = {{u, e_left}, t};
             }
-            // don't `break` because there might be another state with smaller energy reaching target later
+
             continue;
         }
 
-        // 1) Charge if charging station & not full
+        // 1
         if (charging_stations.count(u) && e_left < 1000) {
             int new_e = 1000;
-            int new_t = t; // assume charging is instant as original problem ambiguous; if charging takes time, modify here
-            int new_total = total_energy; // energy added to battery is not added to objective in our earlier convention? The PDF says energy consumed includes edge energies; charging energy counted in objective earlier — ambiguous. We'll keep total_energy unchanged here (charging doesn't add to consumed sum).
+            int new_t = t; 
+            int new_total = total_energy; 
             // If you want charging to count in objective, set new_total += (new_e - e_left);
 
             auto it2 = dist[u].find({new_e, new_t});
@@ -199,7 +187,7 @@ int main() {
             }
         }
 
-        // 2) Wait at rest point: consider only waiting required to toggle hour parity (0 or minimal wait to change hour parity)
+        // 2
         if (rest_points.count(u)) {
             // current hour parity:
             int cur_hour = (start_hour + t/60) % 2;
@@ -209,7 +197,7 @@ int main() {
             int wait_to_flip_hour = (60 - minute_in_hour) % 60; // waiting this many minutes changes floor((t+wait)/60)
             if (wait_to_flip_hour == 0) wait_to_flip_hour = 60; // if exactly at hour boundary, waiting 60 flips
 
-            // option: wait exactly wait_to_flip_hour
+           
             int new_t = (t + wait_to_flip_hour) % 120;
             int new_e = e_left;
             int new_total = total_energy; // waiting doesn't add energy
@@ -221,13 +209,13 @@ int main() {
             }
         }
 
-        // 3) Traverse edges
+        // 3
         for (auto &ed : graph[u]) {
             int base = ed.base;
             int travel_time = ed.travel_time;
             int hour_parity = (start_hour + (t / 60)) % 2; // 1 = odd, 0 = even
             int cost = (hour_parity == 1) ? ed.energy_odd : ed.energy_even;
-            // Ensure we have enough energy
+           
             if (e_left < cost) continue;
             int new_e = e_left - cost;
             int new_t = (t + travel_time) % 120;
@@ -248,7 +236,7 @@ int main() {
         return 0;
     }
 
-    // reconstruct path
+    // reconstruct 
     vector<int> path_nodes;
     vector<int> arrival_t;
     vector<int> energy_left_seq;
@@ -268,7 +256,7 @@ int main() {
         eleft = p.prev_e;
         tmod = p.prev_t;
     }
-    // push start
+    // start
     path_nodes.push_back(start_idx);
     arrival_t.push_back(0);
     energy_left_seq.push_back(1000);
@@ -277,7 +265,7 @@ int main() {
     reverse(arrival_t.begin(), arrival_t.end());
     reverse(energy_left_seq.begin(), energy_left_seq.end());
 
-    // compute absolute times in minutes using parent info by walking forward again to calculate durations
+ 
     vector<int> absolute_times(path_nodes.size(), 0);
     // We'll reconstruct times by re-simulating the transitions using parent stored info:
     // Start at time 0
@@ -321,3 +309,4 @@ int main() {
 
     return 0;
 }
+
