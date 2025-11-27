@@ -128,7 +128,7 @@ int main() {
     using State = tuple<int,int,int,int>; // (total_energy, u, energy_left, t_mod120)
     priority_queue<State, vector<State>, greater<State>> pq;
 
-    int start_idx = node_to_index[index_to_node[0]]; // dummy init; we will find actual S index
+    int start_idx = node_to_index[index_to_node[0]]; // dummy init find actual S index
    
     {
         stringstream ss(st_line);
@@ -177,7 +177,7 @@ int main() {
             int new_e = 1000;
             int new_t = t; 
             int new_total = total_energy; 
-            // If you want charging to count in objective, set new_total += (new_e - e_left);
+            // If any charging to count in objective, set new_total += (new_e - e_left);
 
             auto it2 = dist[u].find({new_e, new_t});
             if (it2 == dist[u].end() || new_total < it2->second) {
@@ -191,7 +191,7 @@ int main() {
         if (rest_points.count(u)) {
             // current hour parity:
             int cur_hour = (start_hour + t/60) % 2;
-            // we want to consider either no wait, or minimal wait to flip hour parity (i.e., wait minutes until floor((t+wait)/60) toggles)
+            // i want to consider either no wait, or minimal wait to flip hour parity (i.e., wait minutes until floor((t+wait)/60) toggles)
             // compute minute within current hour: minute_in_hour = t % 60
             int minute_in_hour = t % 60;
             int wait_to_flip_hour = (60 - minute_in_hour) % 60; // waiting this many minutes changes floor((t+wait)/60)
@@ -309,4 +309,5 @@ int main() {
 
     return 0;
 }
+
 
